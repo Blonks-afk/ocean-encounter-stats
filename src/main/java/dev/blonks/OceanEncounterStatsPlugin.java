@@ -3,6 +3,7 @@ package dev.blonks;
 import com.google.inject.Provides;
 import javax.inject.Inject;
 
+import dev.blonks.encounter.CurrentStats;
 import dev.blonks.encounter.Encounter;
 import dev.blonks.encounter.EncounterStats;
 import lombok.Getter;
@@ -10,10 +11,10 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.gameval.NpcID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -21,9 +22,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @PluginDescriptor(
@@ -47,11 +46,8 @@ public class OceanEncounterStatsPlugin extends Plugin
 	private ConfigManager configManager;
 
 	@Getter
-	private int ticksSinceLast = 0;
-	@Getter
-	private int regionBordersSinceLast = 0;
-	@Getter
-	private int tilesSinceLast = 0;
+	private CurrentStats currentStats = new CurrentStats();
+
 	@Getter
 	private List<EncounterStats> stats;
 	private int lastRegionId = 0;
@@ -73,21 +69,57 @@ public class OceanEncounterStatsPlugin extends Plugin
 
 	@Subscribe
 	private void onGameTick(GameTick tick) {
-		ticksSinceLast++;
+		currentStats.setTicksSinceLast(currentStats.getTicksSinceLast() + 1);
 		var player = client.getLocalPlayer();
 		if (player == null) return;
 		WorldPoint tlwp = getTopLevelWorldPoint(client);
 		if (tlwp == null) return;
 
 		if (lastWorldPoint != null) {
-			tilesSinceLast += lastWorldPoint.distanceTo(tlwp);
+			// have previous tracking, update stats
+
+			int onBoat = client.getVarbitValue(VarbitID.SAILING_PLAYER_IS_ON_PLAYER_BOAT);
+			if (onBoat == 1) {
+
+				int distanceTravelled = lastWorldPoint.distanceTo(tlwp);
+				currentStats.setTilesSinceLast(currentStats.getTilesSinceLast() + distanceTravelled);
+
+				int helmStatus = client.getVarbitValue(VarbitID.SAILING_SIDEPANEL_HELM_STATUS);
+				int playerAtHelm = client.getVarbitValue(VarbitID.SAILING_SIDEPANEL_PLAYER_AT_HELM);
+				int freesail = client.getVarbitValue(VarbitID.KEEP_SAILING_BOAT_WHEN_LEAVING_HELM);
+
+				if (distanceTravelled == 0) {
+					// update stationary ticks
+					currentStats.setStationaryTicksSinceLast(currentStats.getStationaryTicksSinceLast() + 1);
+				}
+
+				if (helmStatus == 1 && freesail == 1) {
+					// helm is unmanned and freesail setting is enabled
+					currentStats.setTicksFreeSteering(currentStats.getTicksFreeSteering() + 1);
+				}
+
+				if (playerAtHelm == 1) {
+					// player is at helm
+					currentStats.setTicksSteering(currentStats.getTicksSteering() + 1);
+				}
+
+				if (helmStatus > 2) {
+					// helm is manned by a crewmate
+					currentStats.setTicksCrewSteering(currentStats.getTicksCrewSteering() + 1);
+				}
+			} else {
+				// player is on land
+				currentStats.setTicksOnMainland(currentStats.getTicksOnMainland() + 1);
+			}
+
+
 		}
 		lastWorldPoint = tlwp;
 
 		int regionId = tlwp.getRegionID();
 		if (regionId != lastRegionId) {
 			if (lastRegionId != 0) {
-				regionBordersSinceLast++;
+				currentStats.setRegionBordersSinceLast(currentStats.getRegionBordersSinceLast() + 1);
 			}
 			lastRegionId = regionId;
 		}
@@ -122,11 +154,24 @@ public class OceanEncounterStatsPlugin extends Plugin
 
 	@Subscribe
 	private void onNpcSpawned(NpcSpawned e) {
-		if (ticksSinceLast <= DEBOUNCE_TICKS) {
+		if (currentStats.getTicksSinceLast() <= DEBOUNCE_TICKS) {
 			return;
 		}
-		Encounter encounterType = null;
-		switch (e.getNpc().getId())
+		Encounter encounterType = getEncounterType(e.getNpc().getId());
+
+		if (encounterType != null) {
+			EncounterStats stat = currentStats.createEncounterStats(encounterType);
+			String eventConfig = configManager.getConfiguration("oceanEncounterStats", "encountersExport", String.class);
+			eventConfig += "\n" + stat.toString();
+			configManager.setConfiguration("oceanEncounterStats", "encountersExport", eventConfig);
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "Ocean Encounter", stat.toString(), "Ocean Encounter");
+			stats.add(stat);
+		}
+	}
+
+	private Encounter getEncounterType(int npcId) {
+		Encounter type = null;
+		switch (npcId)
 		{
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_MAN1_ADRIFT:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_MAN1_PASSENGER:
@@ -142,7 +187,7 @@ public class OceanEncounterStatsPlugin extends Plugin
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_WILSON_PASSENGER:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_DOG1_ADRIFT:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_DOG1_PASSENGER:
-				encounterType = Encounter.CASTAWAY;
+				type = Encounter.CASTAWAY;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_BEGINNER:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_EASY:
@@ -150,14 +195,14 @@ public class OceanEncounterStatsPlugin extends Plugin
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_HARD:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_ELITE:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_MASTER:
-				encounterType = Encounter.CASKET;
+				type = Encounter.CASKET;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTER_CLUE_TURTLE:
-				encounterType = Encounter.TURTLE;
+				type = Encounter.TURTLE;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_CLAM_OPEN:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_CLAM_PEARL:
-				encounterType = Encounter.CLAM;
+				type = Encounter.CLAM;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_WOOD:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_OAK:
@@ -165,32 +210,21 @@ public class OceanEncounterStatsPlugin extends Plugin
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_MAHOGANY:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CAMPHOR:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_IRONWOOD:
-				encounterType = Encounter.CRATE;
+				type = Encounter.CRATE;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_GLOW:
-				encounterType = Encounter.GLOW;
+				type = Encounter.GLOW;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_WIND_HIGH:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_WIND_MED:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_WIND_LOW:
-				encounterType = Encounter.WIND;
+				type = Encounter.WIND;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_OCEAN_MAN:
-				encounterType = Encounter.MAN;
+				type = Encounter.MAN;
 				break;
 		}
-
-		if (encounterType != null) {
-			EncounterStats stat = new EncounterStats(encounterType, ticksSinceLast, regionBordersSinceLast, tilesSinceLast);
-			String eventConfig = configManager.getConfiguration("oceanEncounterStats", "encountersExport", String.class);
-			eventConfig += "\n" + stat.toString();
-			configManager.setConfiguration("oceanEncounterStats", "encountersExport", eventConfig);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "Ocean Encounter", stat.toString(), "Ocean Encounter");
-			stats.add(stat);
-			ticksSinceLast = 0;
-			regionBordersSinceLast = 0;
-			tilesSinceLast = 0;
-		}
+		return type;
 	}
 
 	@Provides

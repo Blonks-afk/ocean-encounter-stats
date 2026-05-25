@@ -3,18 +3,16 @@ package dev.blonks;
 import com.google.inject.Provides;
 import javax.inject.Inject;
 
-import dev.blonks.encounter.CurrentStats;
 import dev.blonks.encounter.Encounter;
 import dev.blonks.encounter.EncounterStats;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
-import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.gameval.NpcID;
-import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -22,7 +20,9 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @PluginDescriptor(
@@ -45,19 +45,47 @@ public class OceanEncounterStatsPlugin extends Plugin
 	@Inject
 	private ConfigManager configManager;
 
+	/**
+	 * Tracks the moving tick count of the current encounter
+	 */
 	@Getter
-	private CurrentStats currentStats = new CurrentStats();
+	private int ticksMoving = 0;
+	/**
+	 * Tracks the moving tick count of the previous encounter until the NPC spawns
+	 */
+	@Getter
+	private int lastTicksMoving = 0;
+	/**
+	 * Track the number of encounters actually seen
+	 */
+	@Getter
+	private int encounterCount = 0;
+	/**
+	 * Track the number of ink stout messages
+	 */
+	@Getter
+	private int messageCount = 0;
 
 	@Getter
-	private List<EncounterStats> stats;
-	private int lastRegionId = 0;
-	private WorldPoint lastWorldPoint = null;
-	private final int DEBOUNCE_TICKS = 50;
+	private int speed;
+
+	@Getter
+	private Map<Encounter, Integer> encounters = new HashMap<>();
+	@Getter
+	private List<EncounterStats> encounterStats = new ArrayList<>();
+	private LocalPoint lastPoint = null;
+
+	@Getter
+	private int nextEncounterRoll = 115;
+
+
 
 	@Override
 	protected void startUp() throws Exception
 	{
-		stats = new ArrayList<>();
+		for (Encounter encounter : Encounter.values()) {
+			encounters.put(encounter, 0);
+		}
 		overlayManager.add(overlay);
 	}
 
@@ -69,104 +97,71 @@ public class OceanEncounterStatsPlugin extends Plugin
 
 	@Subscribe
 	private void onGameTick(GameTick tick) {
-		currentStats.setTicksSinceLast(currentStats.getTicksSinceLast() + 1);
-		var player = client.getLocalPlayer();
-		if (player == null) return;
-		WorldPoint tlwp = getTopLevelWorldPoint(client);
-		if (tlwp == null) return;
+		LocalPoint newPoint = client
+				.getTopLevelWorldView().worldEntities()
+				.byIndex(client.getLocalPlayer().getWorldView().getId())
+				.getTargetLocation();
 
-		if (lastWorldPoint != null) {
-			// have previous tracking, update stats
-
-			int onBoat = client.getVarbitValue(VarbitID.SAILING_PLAYER_IS_ON_PLAYER_BOAT);
-			if (onBoat == 1) {
-
-				int distanceTravelled = lastWorldPoint.distanceTo(tlwp);
-				currentStats.setTilesSinceLast(currentStats.getTilesSinceLast() + distanceTravelled);
-
-				int helmStatus = client.getVarbitValue(VarbitID.SAILING_SIDEPANEL_HELM_STATUS);
-				int playerAtHelm = client.getVarbitValue(VarbitID.SAILING_SIDEPANEL_PLAYER_AT_HELM);
-				int freesail = client.getVarbitValue(VarbitID.KEEP_SAILING_BOAT_WHEN_LEAVING_HELM);
-
-				if (distanceTravelled == 0) {
-					// update stationary ticks
-					currentStats.setStationaryTicksSinceLast(currentStats.getStationaryTicksSinceLast() + 1);
-				}
-
-				if (helmStatus == 1 && freesail == 1) {
-					// helm is unmanned and freesail setting is enabled
-					currentStats.setTicksFreeSteering(currentStats.getTicksFreeSteering() + 1);
-				}
-
-				if (playerAtHelm == 1) {
-					// player is at helm
-					currentStats.setTicksSteering(currentStats.getTicksSteering() + 1);
-				}
-
-				if (helmStatus > 2) {
-					// helm is manned by a crewmate
-					currentStats.setTicksCrewSteering(currentStats.getTicksCrewSteering() + 1);
-				}
-			} else {
-				// player is on land
-				currentStats.setTicksOnMainland(currentStats.getTicksOnMainland() + 1);
+		if (lastPoint != null) {
+			double trueSpeed = (float) Math.hypot(
+					(lastPoint.getX() - newPoint.getX()),
+					(lastPoint.getY() - newPoint.getY())
+			);
+			speed = roundToQuarterTile(trueSpeed) / 32;
+			if (speed != 0.0) {
+				ticksMoving++;
 			}
-
-
 		}
-		lastWorldPoint = tlwp;
+		lastPoint = newPoint;
 
-		int regionId = tlwp.getRegionID();
-		if (regionId != lastRegionId) {
-			if (lastRegionId != 0) {
-				currentStats.setRegionBordersSinceLast(currentStats.getRegionBordersSinceLast() + 1);
-			}
-			lastRegionId = regionId;
-		}
-	}
-
-	public LocalPoint getTopLevelLocalPoint(Client client)
-	{
-		Player player = client.getLocalPlayer();
-		if (player == null) return null;
-		WorldView wv = player.getWorldView();
-		if (wv.isTopLevel())
-		{
-			return player.getLocalLocation();
-		}
-
-		return client.getTopLevelWorldView()
-				.worldEntities()
-				.byIndex(wv.getId())
-				.transformToMainWorld(client.getLocalPlayer().getLocalLocation());
-	}
-
-	public WorldPoint getTopLevelWorldPoint(Client client)
-	{
-		LocalPoint loc = getTopLevelLocalPoint(client);
-		if (loc == null) return null;
-
-		return WorldPoint.fromLocal(
-				client,
-				getTopLevelLocalPoint(client)
-		);
+		int rem = ticksMoving % 115;
+		nextEncounterRoll = 115 - rem;
 	}
 
 	@Subscribe
 	private void onNpcSpawned(NpcSpawned e) {
-		if (currentStats.getTicksSinceLast() <= DEBOUNCE_TICKS) {
-			return;
-		}
 		Encounter encounterType = getEncounterType(e.getNpc().getId());
+		if (encounterType == null) return;
+		// duplicate entity spawn, ignore
+		if (messageCount == encounterCount) return;
 
-		if (encounterType != null) {
-			EncounterStats stat = currentStats.createEncounterStats(encounterType);
-			String eventConfig = configManager.getConfiguration("oceanEncounterStats", "encountersExport", String.class);
-			eventConfig += "\n" + stat.toString();
-			configManager.setConfiguration("oceanEncounterStats", "encountersExport", eventConfig);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "Ocean Encounter", stat.toString(), "Ocean Encounter");
-			stats.add(stat);
+		// Bump encounter count stat
+		encounters.put(encounterType, encounters.get(encounterType)+1);
+		EncounterStats newStats = new EncounterStats(encounterType, lastTicksMoving);
+		encounterStats.add(newStats);
+		encounterCount++;
+		writeToConfig(newStats);
+	}
+
+	private void writeToConfig(EncounterStats stats) {
+		String configVal = configManager.getConfiguration("oceanEncounterStats", "encountersExport", String.class);
+		configVal += "\n{\"type\":\"" + stats.getEncounter().getName() +
+				"\", \"ticks\":\"" + stats.getTicksMoving() + "\"}";
+		configManager.setConfiguration("oceanEncounterStats", "encountersExport", configVal);
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "Ocean Encounters", stats.getEncounter().getName() + ", " + String.valueOf(stats.getTicksMoving()), "Ocean Encounters");
+	}
+
+	@Subscribe
+	private void onChatMessage(ChatMessage e) {
+		if (e.getMessage().contains("ink stout:")) {
+			messageCount++;
+			lastTicksMoving = ticksMoving;
+			ticksMoving = 0;
 		}
+	}
+
+	private static int roundToQuarterTile(double trueSpeed)
+	{
+		int quarterTileFloor = ((int) trueSpeed) & ~0x1F;
+		int quarterTileCeil = quarterTileFloor + 0x20;
+		log.trace("{} = {} {}", trueSpeed, quarterTileFloor, quarterTileCeil);
+
+		if (quarterTileCeil - trueSpeed < trueSpeed - quarterTileFloor)
+		{
+			return quarterTileCeil;
+		}
+
+		return quarterTileFloor;
 	}
 
 	private Encounter getEncounterType(int npcId) {

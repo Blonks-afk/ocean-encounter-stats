@@ -40,50 +40,16 @@ public class OceanEncounterStatsOverlay extends Overlay {
         renderStat("Stats since", "", Color.YELLOW);
         renderStat("last encounter", "", Color.YELLOW);
 
-        renderStat("Ticks: ", plugin.getCurrentStats().getTicksSinceLast());
-        renderStat("Ticks Steering: ", plugin.getCurrentStats().getTicksSteering());
-        renderStat("Ticks Stationary: ", plugin.getCurrentStats().getStationaryTicksSinceLast());
-        renderStat("Ticks on Mainland: ", plugin.getCurrentStats().getTicksOnMainland());
-        renderStat("Ticks Crew Steering: ", plugin.getCurrentStats().getTicksCrewSteering());
-        renderStat("Ticks Free Steering: ", plugin.getCurrentStats().getTicksFreeSteering());
-        renderStat("Region Borders: ", plugin.getCurrentStats().getRegionBordersSinceLast());
-        renderStat("Tiles: ", plugin.getCurrentStats().getTilesSinceLast());
-        BigDecimal tiles = BigDecimal.valueOf(plugin.getCurrentStats().getTilesSinceLast());
-        BigDecimal ticks = new BigDecimal(plugin.getCurrentStats().getTicksSinceLast());
-        if (ticks.equals(BigDecimal.ZERO)) {
-            ticks = BigDecimal.ZERO;
-        }
-        BigDecimal speed = tiles.divide(ticks, 1, RoundingMode.HALF_UP);
-        renderStat("Speed: ", speed);
+        renderStat("Ticks: ", plugin.getTicksMoving());
+        renderStat("Speed: ", plugin.getSpeed());
+        renderStat("Next Roll: ", plugin.getNextEncounterRoll());
         renderStat("", "");
 
         // Total average stats
-        Double avgTicks = plugin.getStats().stream().collect(Collectors.averagingDouble(EncounterStats::getTicksSinceLast));
-        Double avgRegions = plugin.getStats().stream().collect(Collectors.averagingDouble(EncounterStats::getRegionBordersSinceLast));
-        Double avgTiles = plugin.getStats().stream().collect(Collectors.averagingDouble(EncounterStats::getTilesSinceLast));
-        BigDecimal avgTilesBd = BigDecimal.valueOf(avgTiles);
-        BigDecimal avgTicksBd = BigDecimal.valueOf(avgTicks);
-        if (avgTicksBd.compareTo(BigDecimal.ZERO) == 0) {
-            avgTicksBd = BigDecimal.ONE;
-        }
-        BigDecimal avgSpeed = avgTilesBd.divide(avgTicksBd, 1, RoundingMode.HALF_UP);
-        renderStat("Average stats", "", Color.YELLOW);
-        renderStat("per encounter", "", Color.YELLOW);
-        renderStat("Ticks: ", roundDouble(avgTicks));
-        renderStat("Borders: ", roundDouble(avgRegions));
-        renderStat("Tiles: ", roundDouble(avgTiles));
-        renderStat("Speed: ", avgSpeed);
-        renderStat("", "");
         renderStat("Encounters seen", "", Color.YELLOW);
 
-        Map<Encounter, List<EncounterStats>> statMap = plugin.getStats().stream().collect(Collectors.groupingBy(EncounterStats::getEncounter));
-
         for (var type : Encounter.values()) {
-            List<EncounterStats> statsList = statMap.get(type);
-            int count = 0;
-            if (statsList != null) {
-                count = statsList.size();
-            }
+            int count = plugin.getEncounters().get(type);
             panel.getChildren().add(TitleComponent.builder()
                     .text(type.getName() + ": " + count)
                     .color(Color.WHITE)
@@ -102,11 +68,5 @@ public class OceanEncounterStatsOverlay extends Overlay {
                 .text(title + value)
                 .color(color)
                 .build());
-    }
-
-    private BigDecimal roundDouble(double value) {
-        BigDecimal bd = new BigDecimal(value);
-        bd = bd.setScale(1, RoundingMode.HALF_UP);
-        return bd;
     }
 }

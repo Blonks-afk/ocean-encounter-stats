@@ -37,90 +37,19 @@ public class OceanEncounterStatsOverlay extends Overlay {
         panel.getChildren().clear();
 
         // Stats since last
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Stats since")
-                .color(Color.YELLOW)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("last encounter")
-                .color(Color.YELLOW)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Ticks: " + plugin.getTicksSinceLast())
-                .color(Color.WHITE)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Borders: " + plugin.getRegionBordersSinceLast())
-                .color(Color.WHITE)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Tiles: " + plugin.getTilesSinceLast())
-                .color(Color.WHITE)
-                .build());
-        BigDecimal tiles = BigDecimal.valueOf(plugin.getTilesSinceLast());
-        BigDecimal ticks = BigDecimal.valueOf(plugin.getTicksSinceLast());
-        BigDecimal speed = tiles.divide(ticks, 1, RoundingMode.HALF_UP);
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Speed: " + speed)
-                .color(Color.WHITE)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("")
-                .color(Color.WHITE)
-                .build());
+        renderStat("Stats since", "", Color.YELLOW);
+        renderStat("last encounter", "", Color.YELLOW);
+
+        renderStat("Ticks: ", plugin.getTicksMoving());
+        renderStat("Speed: ", plugin.getSpeed());
+        renderStat("Next Roll: ", plugin.getNextEncounterRoll());
+        renderStat("", "");
 
         // Total average stats
-        Double avgTicks = plugin.getStats().stream().collect(Collectors.averagingDouble(EncounterStats::getTicksSinceLast));
-        Double avgRegions = plugin.getStats().stream().collect(Collectors.averagingDouble(EncounterStats::getRegionBordersSinceLast));
-        Double avgTiles = plugin.getStats().stream().collect(Collectors.averagingDouble(EncounterStats::getTilesSinceLast));
-        BigDecimal avgTilesBd = BigDecimal.valueOf(avgTiles);
-        BigDecimal avgTicksBd = BigDecimal.valueOf(avgTicks);
-        if (avgTicksBd.compareTo(BigDecimal.ZERO) == 0) {
-            avgTicksBd = BigDecimal.ONE;
-        }
-        BigDecimal avgSpeed = avgTilesBd.divide(avgTicksBd, 1, RoundingMode.HALF_UP);
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Average stats")
-                .color(Color.YELLOW)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("per encounter")
-                .color(Color.YELLOW)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Ticks: " + avgTicks)
-                .color(Color.WHITE)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Borders: " + avgRegions)
-                .color(Color.WHITE)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Tiles: " + avgTiles)
-                .color(Color.WHITE)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Speed: " + avgSpeed)
-                .color(Color.WHITE)
-                .build());
-        panel.getChildren().add(TitleComponent.builder()
-                .text("")
-                .color(Color.WHITE)
-                .build());
-
-        panel.getChildren().add(TitleComponent.builder()
-                .text("Encounters seen")
-                .color(Color.YELLOW)
-                .build());
-
-        Map<Encounter, List<EncounterStats>> statMap = plugin.getStats().stream().collect(Collectors.groupingBy(EncounterStats::getEncounter));
+        renderStat("Encounters seen", "", Color.YELLOW);
 
         for (var type : Encounter.values()) {
-            List<EncounterStats> statsList = statMap.get(type);
-            int count = 0;
-            if (statsList != null) {
-                count = statsList.size();
-            }
+            int count = plugin.getEncounters().get(type);
             panel.getChildren().add(TitleComponent.builder()
                     .text(type.getName() + ": " + count)
                     .color(Color.WHITE)
@@ -130,7 +59,14 @@ public class OceanEncounterStatsOverlay extends Overlay {
         return panel.render(graphics);
     }
 
-    private String camelCase(String str) {
-        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
+    private <I> void renderStat(String title, I value) {
+        renderStat(title, value, Color.WHITE);
+    }
+
+    private <I> void renderStat(String title, I value, Color color) {
+        panel.getChildren().add(TitleComponent.builder()
+                .text(title + value)
+                .color(color)
+                .build());
     }
 }

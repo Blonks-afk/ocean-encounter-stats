@@ -1,11 +1,13 @@
 package dev.blonks.encounter;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
 
-@Data
+@Getter
+@AllArgsConstructor
 public class EncounterStats {
     private final Encounter encounter;
-    private final int ticksSinceLast;
-    private final int regionBordersSinceLast;
-    private final int tilesSinceLast;
+    private int ticksMoving;
 }

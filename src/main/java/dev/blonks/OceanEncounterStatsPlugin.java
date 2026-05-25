@@ -9,8 +9,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
-import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.gameval.NpcID;
@@ -46,22 +45,47 @@ public class OceanEncounterStatsPlugin extends Plugin
 	@Inject
 	private ConfigManager configManager;
 
+	/**
+	 * Tracks the moving tick count of the current encounter
+	 */
 	@Getter
-	private int ticksSinceLast = 0;
+	private int ticksMoving = 0;
+	/**
+	 * Tracks the moving tick count of the previous encounter until the NPC spawns
+	 */
 	@Getter
-	private int regionBordersSinceLast = 0;
+	private int lastTicksMoving = 0;
+	/**
+	 * Track the number of encounters actually seen
+	 */
 	@Getter
-	private int tilesSinceLast = 0;
+	private int encounterCount = 0;
+	/**
+	 * Track the number of ink stout messages
+	 */
 	@Getter
-	private List<EncounterStats> stats;
-	private int lastRegionId = 0;
-	private WorldPoint lastWorldPoint = null;
-	private final int DEBOUNCE_TICKS = 50;
+	private int messageCount = 0;
+
+	@Getter
+	private int speed;
+
+	@Getter
+	private Map<Encounter, Integer> encounters = new HashMap<>();
+	@Getter
+	private List<EncounterStats> encounterStats = new ArrayList<>();
+	private LocalPoint lastPoint = null;
+
+	@Getter
+	private int nextEncounterRoll = 115;
+
+
 
 	@Override
 	protected void startUp() throws Exception
 	{
-		stats = new ArrayList<>();
+		for (Encounter encounter : Encounter.values()) {
+			encounters.put(encounter, 0);
+		}
 		overlayManager.add(overlay);
 	}
 
@@ -73,60 +97,76 @@ public class OceanEncounterStatsPlugin extends Plugin
 
 	@Subscribe
 	private void onGameTick(GameTick tick) {
-		ticksSinceLast++;
-		var player = client.getLocalPlayer();
-		if (player == null) return;
-		WorldPoint tlwp = getTopLevelWorldPoint(client);
-		if (tlwp == null) return;
+		LocalPoint newPoint = client
+				.getTopLevelWorldView().worldEntities()
+				.byIndex(client.getLocalPlayer().getWorldView().getId())
+				.getTargetLocation();
 
-		if (lastWorldPoint != null) {
-			tilesSinceLast += lastWorldPoint.distanceTo(tlwp);
-		}
-		lastWorldPoint = tlwp;
-
-		int regionId = tlwp.getRegionID();
-		if (regionId != lastRegionId) {
-			if (lastRegionId != 0) {
-				regionBordersSinceLast++;
+		if (lastPoint != null) {
+			double trueSpeed = (float) Math.hypot(
+					(lastPoint.getX() - newPoint.getX()),
+					(lastPoint.getY() - newPoint.getY())
+			);
+			speed = roundToQuarterTile(trueSpeed) / 32;
+			if (speed != 0.0) {
+				ticksMoving++;
 			}
-			lastRegionId = regionId;
 		}
-	}
+		lastPoint = newPoint;
 
-	public LocalPoint getTopLevelLocalPoint(Client client)
-	{
-		Player player = client.getLocalPlayer();
-		if (player == null) return null;
-		WorldView wv = player.getWorldView();
-		if (wv.isTopLevel())
-		{
-			return player.getLocalLocation();
-		}
-
-		return client.getTopLevelWorldView()
-				.worldEntities()
-				.byIndex(wv.getId())
-				.transformToMainWorld(client.getLocalPlayer().getLocalLocation());
-	}
-
-	public WorldPoint getTopLevelWorldPoint(Client client)
-	{
-		LocalPoint loc = getTopLevelLocalPoint(client);
-		if (loc == null) return null;
-
-		return WorldPoint.fromLocal(
-				client,
-				getTopLevelLocalPoint(client)
-		);
+		int rem = ticksMoving % 115;
+		nextEncounterRoll = 115 - rem;
 	}
 
 	@Subscribe
 	private void onNpcSpawned(NpcSpawned e) {
-		if (ticksSinceLast <= DEBOUNCE_TICKS) {
-			return;
+		Encounter encounterType = getEncounterType(e.getNpc().getId());
+		if (encounterType == null) return;
+		// duplicate entity spawn, ignore
+		if (messageCount == encounterCount) return;
+
+		// Bump encounter count stat
+		encounters.put(encounterType, encounters.get(encounterType)+1);
+		EncounterStats newStats = new EncounterStats(encounterType, lastTicksMoving);
+		encounterStats.add(newStats);
+		encounterCount++;
+		writeToConfig(newStats);
+	}
+
+	private void writeToConfig(EncounterStats stats) {
+		String configVal = configManager.getConfiguration("oceanEncounterStats", "encountersExport", String.class);
+		configVal += "\n{\"type\":\"" + stats.getEncounter().getName() +
+				"\", \"ticks\":\"" + stats.getTicksMoving() + "\"}";
+		configManager.setConfiguration("oceanEncounterStats", "encountersExport", configVal);
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "Ocean Encounters", stats.getEncounter().getName() + ", " + String.valueOf(stats.getTicksMoving()), "Ocean Encounters");
+	}
+
+	@Subscribe
+	private void onChatMessage(ChatMessage e) {
+		if (e.getMessage().contains("ink stout:")) {
+			messageCount++;
+			lastTicksMoving = ticksMoving;
+			ticksMoving = 0;
 		}
-		Encounter encounterType = null;
-		switch (e.getNpc().getId())
+	}
+
+	private static int roundToQuarterTile(double trueSpeed)
+	{
+		int quarterTileFloor = ((int) trueSpeed) & ~0x1F;
+		int quarterTileCeil = quarterTileFloor + 0x20;
+		log.trace("{} = {} {}", trueSpeed, quarterTileFloor, quarterTileCeil);
+
+		if (quarterTileCeil - trueSpeed < trueSpeed - quarterTileFloor)
+		{
+			return quarterTileCeil;
+		}
+
+		return quarterTileFloor;
+	}
+
+	private Encounter getEncounterType(int npcId) {
+		Encounter type = null;
+		switch (npcId)
 		{
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_MAN1_ADRIFT:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_MAN1_PASSENGER:
@@ -142,7 +182,7 @@ public class OceanEncounterStatsPlugin extends Plugin
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_WILSON_PASSENGER:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_DOG1_ADRIFT:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_RESCUE_DOG1_PASSENGER:
-				encounterType = Encounter.CASTAWAY;
+				type = Encounter.CASTAWAY;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_BEGINNER:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_EASY:
@@ -150,14 +190,14 @@ public class OceanEncounterStatsPlugin extends Plugin
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_HARD:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_ELITE:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CASKET_MASTER:
-				encounterType = Encounter.CASKET;
+				type = Encounter.CASKET;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTER_CLUE_TURTLE:
-				encounterType = Encounter.TURTLE;
+				type = Encounter.TURTLE;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_CLAM_OPEN:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_CLAM_PEARL:
-				encounterType = Encounter.CLAM;
+				type = Encounter.CLAM;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_WOOD:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_OAK:
@@ -165,32 +205,21 @@ public class OceanEncounterStatsPlugin extends Plugin
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_MAHOGANY:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_CAMPHOR:
 			case NpcID.SAILING_CHANCE_ENCOUNTER_LOST_GOODS_IRONWOOD:
-				encounterType = Encounter.CRATE;
+				type = Encounter.CRATE;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_GLOW:
-				encounterType = Encounter.GLOW;
+				type = Encounter.GLOW;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_WIND_HIGH:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_WIND_MED:
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_WIND_LOW:
-				encounterType = Encounter.WIND;
+				type = Encounter.WIND;
 				break;
 			case NpcID.SAILING_CHANCE_ENCOUNTERS_OCEAN_MAN:
-				encounterType = Encounter.MAN;
+				type = Encounter.MAN;
 				break;
 		}
-
-		if (encounterType != null) {
-			EncounterStats stat = new EncounterStats(encounterType, ticksSinceLast, regionBordersSinceLast, tilesSinceLast);
-			String eventConfig = configManager.getConfiguration("oceanEncounterStats", "encountersExport", String.class);
-			eventConfig += "\n" + stat.toString();
-			configManager.setConfiguration("oceanEncounterStats", "encountersExport", eventConfig);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "Ocean Encounter", stat.toString(), "Ocean Encounter");
-			stats.add(stat);
-			ticksSinceLast = 0;
-			regionBordersSinceLast = 0;
-			tilesSinceLast = 0;
-		}
+		return type;
 	}
 
 	@Provides

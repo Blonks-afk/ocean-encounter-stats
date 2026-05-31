@@ -1,13 +1,13 @@
-package dev.blonks;
+package dev.blonks.osrs.oceanencounters;
 
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
-public class OceanEncounterStatsTest
+public class OceanEncounterTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(OceanEncounterStatsPlugin.class);
+		ExternalPluginManager.loadBuiltin(OceanEncounterPlugin.class);
 		RuneLite.main(args);
 	}
 }

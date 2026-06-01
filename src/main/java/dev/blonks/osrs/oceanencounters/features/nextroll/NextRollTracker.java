@@ -35,11 +35,6 @@ public class NextRollTracker implements PluginLifecycleComponent {
     private int ticksMoving = 0;
 
     @Override
-    public boolean isEnabled(OceanEncounterConfig config) {
-        return config.displayRollTimer();
-    }
-
-    @Override
     public void startup() {
         resetState();
     }
@@ -118,8 +113,17 @@ public class NextRollTracker implements PluginLifecycleComponent {
      * TODO: Implement 115 vs 120 logic for kraken ink stout
      */
     private void resetState() {
-        ticksRemaining = 115;
+        if (krakenInkPresent()) {
+            ticksRemaining = 115;
+        } else {
+            ticksRemaining = 120;
+        }
         ticksMoving = 0;
         queueEncounter = false;
+    }
+
+    private boolean krakenInkPresent() {
+        // TODO: Implement actual kraken ink stout keg check
+        return true;
     }
 }

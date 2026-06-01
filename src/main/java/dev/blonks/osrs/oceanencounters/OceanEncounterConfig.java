@@ -96,6 +96,15 @@ public interface OceanEncounterConfig extends Config
 		return NextRollDisplayTime.NAVIGATING;
 	}
 
+	@ConfigItem(
+			keyName = "encountersSeenData",
+			name = "Encounters Seen Data",
+			description = "JSON Object that holds your encounters seen."
+	)
+	default String encountersSeenData() {
+		return null;
+	}
+
 	@ConfigSection(
 			name = "Debug",
 			description = "",

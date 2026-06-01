@@ -1,14 +1,11 @@
 package dev.blonks.osrs.oceanencounters.module;
 
 import dev.blonks.osrs.oceanencounters.OceanEncounterConfig;
-import dev.blonks.osrs.oceanencounters.features.panel.MainPanel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
-import net.runelite.client.ui.ClientToolbar;
-import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.ui.overlay.infobox.InfoBox;
@@ -29,7 +26,6 @@ public class ComponentManager {
     private final OverlayManager overlayManager;
     private final InfoBoxManager infoBoxManager;
     private final GameEventManager gameEventManager;
-    private final ClientToolbar clientToolbar;
     private final OceanEncounterConfig config;
     private final Set<PluginLifecycleComponent> components;
     private final Map<PluginLifecycleComponent, Boolean> states = new HashMap<>();

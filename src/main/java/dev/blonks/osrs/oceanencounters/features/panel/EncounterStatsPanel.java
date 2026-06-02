@@ -3,18 +3,15 @@ package dev.blonks.osrs.oceanencounters.features.panel;
 import dev.blonks.osrs.oceanencounters.features.encounters.EncounterStatsManager;
 import dev.blonks.osrs.oceanencounters.features.util.Encounter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
-import net.runelite.client.ui.components.ProgressBar;
-import net.runelite.client.util.ImageUtil;
-import net.runelite.client.util.SwingUtil;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 
 @Slf4j
-public class OceanEncountersPanel extends PluginPanel {
+public class EncounterStatsPanel extends PluginPanel {
     private final EncounterStatsManager encounterStatsManager;
 
     private static final String DOWN_ARROW = "▼";
@@ -23,7 +20,7 @@ public class OceanEncountersPanel extends PluginPanel {
     private JPanel encounterPanel;
 
 
-    public OceanEncountersPanel(EncounterStatsManager encounterStatsManager) {
+    public EncounterStatsPanel(EncounterStatsManager encounterStatsManager) {
         this.encounterStatsManager = encounterStatsManager;
 
         setLayout(new BorderLayout());
@@ -44,6 +41,8 @@ public class OceanEncountersPanel extends PluginPanel {
         encounterPanel = new JPanel();
         encounterPanel.setBorder(new EmptyBorder(1, 1, 1, 1));
         encounterPanel.setLayout(new BoxLayout(encounterPanel, BoxLayout.Y_AXIS));
+        encounterPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+//        encounterPanel.setLayout(new BorderLayout());
 
         int totalCount = encounterStatsManager.getEncounterCounts().getCount();
         log.info("Total Encounter Count: {}", totalCount);

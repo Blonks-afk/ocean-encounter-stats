@@ -20,18 +20,18 @@ import javax.inject.Singleton;
 public class PanelManager implements PluginLifecycleComponent {
     private final ClientToolbar clientToolbar;
     private NavigationButton navButton;
-    private OceanEncountersPanel oceanEncountersPanel;
+    private EncounterStatsPanel encounterStatsPanel;
     private final EncounterCounts encounterCounts;
     private final EncounterStatsManager encounterStatsManager;
 
     @Override
     public void startup() {
         log.info("Starting PanelManager");
-        oceanEncountersPanel = new OceanEncountersPanel(encounterStatsManager);
+        encounterStatsPanel = new EncounterStatsPanel(encounterStatsManager);
         navButton = NavigationButton.builder()
                 .priority(30)
                 .tooltip("Ocean Encounters")
-                .panel(oceanEncountersPanel)
+                .panel(encounterStatsPanel)
                 .icon(ImageUtil.loadImageResource(getClass(), "/Giant_clam_(pearl).png"))
                 .build();
         clientToolbar.addNavigation(navButton);
@@ -40,7 +40,7 @@ public class PanelManager implements PluginLifecycleComponent {
     @Subscribe
     public void onEncounterSpawned(EncounterSpawned encounterSpawned) {
         if (encounterSpawned.isDistinct()) {
-            oceanEncountersPanel.update();
+            encounterStatsPanel.update();
         }
     }
 

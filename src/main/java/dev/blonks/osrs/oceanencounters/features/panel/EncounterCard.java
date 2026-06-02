@@ -2,7 +2,9 @@ package dev.blonks.osrs.oceanencounters.features.panel;
 
 import dev.blonks.osrs.oceanencounters.features.encounters.EncounterStatsManager;
 import dev.blonks.osrs.oceanencounters.features.util.Encounter;
+import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.components.ProgressBar;
+import net.runelite.client.ui.components.ThinProgressBar;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.SwingUtil;
 
@@ -20,6 +22,7 @@ public class EncounterCard extends JPanel {
     private final Encounter encounter;
     private final JButton expandButton;
     private final JPanel southPanel;
+
     private boolean expanded = false;
 
     public EncounterCard(EncounterStatsManager encounterStatsManager, Encounter encounter) {
@@ -32,12 +35,15 @@ public class EncounterCard extends JPanel {
         int count = encounterStatsManager.getEncounterCounts().getCount(encounter);
 
         setLayout(new BorderLayout());
+        setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
 
         // Create and add name to north
         JLabel encounterNameLabel = new JLabel(encounter.getName());
         encounterNameLabel.setHorizontalAlignment(SwingConstants.CENTER);
         encounterNameLabel.setVerticalAlignment(SwingConstants.CENTER);
         encounterNameLabel.setForeground(Color.WHITE);
+        encounterNameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         add(encounterNameLabel, BorderLayout.NORTH);
 
         // create and add icons to west
@@ -46,11 +52,13 @@ public class EncounterCard extends JPanel {
         Image img = icon.getScaledInstance(25, 25, Image.SCALE_SMOOTH);
         encounterIcon.setIcon(new ImageIcon(img));
         encounterIcon.setSize(25, 25);
+        encounterIcon.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         add(encounterIcon, BorderLayout.WEST);
 
         // create and add progress bar to center
         JPanel centerPanel = new JPanel(new GridBagLayout());
         centerPanel.setBorder(new EmptyBorder(0, 5, 0, 5));
+        centerPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         ProgressBar progressBar = new ProgressBar();
         progressBar.setForeground(Color.GREEN);
         progressBar.setBackground(Color.GRAY);
@@ -69,11 +77,12 @@ public class EncounterCard extends JPanel {
         add(centerPanel, BorderLayout.CENTER);
 
         // create and add fixed-size optional dropdown to east
-        Dimension dropdownDimension = new Dimension(40, 5);
+        Dimension dropdownDimension = new Dimension(35, 5);
         JPanel eastPanel = new JPanel(new GridBagLayout());
         eastPanel.setPreferredSize(dropdownDimension);
         eastPanel.setMinimumSize(new Dimension(dropdownDimension.width, 0));
         eastPanel.setMaximumSize(new Dimension(dropdownDimension.width, Integer.MAX_VALUE));
+        eastPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
         expandButton = new JButton(RIGHT_ARROW);
         SwingUtil.removeButtonDecorations(expandButton);
@@ -90,11 +99,26 @@ public class EncounterCard extends JPanel {
         southPanel = new JPanel();
         southPanel.setLayout(new BoxLayout(southPanel, BoxLayout.Y_AXIS));
         southPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
+        southPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         southPanel.setVisible(expanded);
+        int quantity = encounterStatsManager.getEncounterCounts().getCount(encounter);
         for (int npcId :  encounter.getNpcIds()) {
             // add subtype cards here
+            JPanel panel = new JPanel(new BorderLayout());
+            panel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
             JLabel test = new JLabel("" +  npcId);
-            southPanel.add(test);
+            panel.add(test, BorderLayout.WEST);
+
+            ProgressBar subProgressBar = new ProgressBar();
+            int npcQuantity = encounterStatsManager.getEncounterCounts().getCount(npcId);
+            subProgressBar.setMaximumValue(quantity);
+            subProgressBar.setRightLabel(""+quantity);
+            subProgressBar.setValue(npcQuantity);
+            subProgressBar.setCenterLabel(""+npcQuantity);
+            subProgressBar.setBackground(ColorScheme.DARK_GRAY_COLOR);
+            panel.add(subProgressBar, BorderLayout.CENTER);
+            southPanel.add(panel);
         }
         add(southPanel, BorderLayout.SOUTH);
     }

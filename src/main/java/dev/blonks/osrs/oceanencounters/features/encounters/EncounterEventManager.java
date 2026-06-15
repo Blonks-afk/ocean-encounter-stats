@@ -3,7 +3,7 @@ package dev.blonks.osrs.oceanencounters.features.encounters;
 import dev.blonks.osrs.oceanencounters.features.encounters.events.EncounterSpawned;
 import dev.blonks.osrs.oceanencounters.features.encounters.events.InkStoutChatMessage;
 import dev.blonks.osrs.oceanencounters.features.nextroll.NextRollTracker;
-import dev.blonks.osrs.oceanencounters.features.util.Encounter;
+import dev.blonks.osrs.oceanencounters.model.Encounter;
 import dev.blonks.osrs.oceanencounters.features.util.LocationService;
 import dev.blonks.osrs.oceanencounters.module.PluginLifecycleComponent;
 import lombok.RequiredArgsConstructor;

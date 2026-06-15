@@ -1,16 +1,15 @@
 package dev.blonks.osrs.oceanencounters.features.panel;
 
 import dev.blonks.osrs.oceanencounters.features.encounters.EncounterStatsManager;
-import dev.blonks.osrs.oceanencounters.features.util.Encounter;
+import dev.blonks.osrs.oceanencounters.model.Encounter;
+import dev.blonks.osrs.oceanencounters.model.SubEncounterType;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.components.ProgressBar;
-import net.runelite.client.ui.components.ThinProgressBar;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.SwingUtil;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
@@ -37,15 +36,6 @@ public class EncounterCard extends JPanel {
         setLayout(new BorderLayout());
         setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
-
-        // Create and add name to north
-        JLabel encounterNameLabel = new JLabel(encounter.getName());
-        encounterNameLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        encounterNameLabel.setVerticalAlignment(SwingConstants.CENTER);
-        encounterNameLabel.setForeground(Color.WHITE);
-        encounterNameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        add(encounterNameLabel, BorderLayout.NORTH);
-
         // create and add icons to west
         JLabel encounterIcon = new JLabel();
         BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/Giant_clam_(pearl).png");
@@ -54,6 +44,16 @@ public class EncounterCard extends JPanel {
         encounterIcon.setSize(25, 25);
         encounterIcon.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         add(encounterIcon, BorderLayout.WEST);
+
+        // Create subpanel for title and progress bar
+//        JPanel progressTitlePanel = new JPanel(new BorderLayout());
+        // Create and add name to north
+        JLabel encounterNameLabel = new JLabel(encounter.getName());
+        encounterNameLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        encounterNameLabel.setVerticalAlignment(SwingConstants.CENTER);
+        encounterNameLabel.setForeground(Color.WHITE);
+        encounterNameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        add(encounterNameLabel, BorderLayout.NORTH);
 
         // create and add progress bar to center
         JPanel centerPanel = new JPanel(new GridBagLayout());
@@ -76,6 +76,9 @@ public class EncounterCard extends JPanel {
         centerPanel.add(progressBar, c);
         add(centerPanel, BorderLayout.CENTER);
 
+        // add to main panel
+//        add(progressTitlePanel, BorderLayout.CENTER);
+
         // create and add fixed-size optional dropdown to east
         Dimension dropdownDimension = new Dimension(35, 5);
         JPanel eastPanel = new JPanel(new GridBagLayout());
@@ -85,6 +88,7 @@ public class EncounterCard extends JPanel {
         eastPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
         expandButton = new JButton(RIGHT_ARROW);
+//        expandButton.setFont(new Font(expandButton.getFont().getName(), Font.PLAIN, 35));
         SwingUtil.removeButtonDecorations(expandButton);
         if (encounter.getNpcIds().size() > 1) {
             eastPanel.add(expandButton);
@@ -102,25 +106,35 @@ public class EncounterCard extends JPanel {
         southPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         southPanel.setVisible(expanded);
         int quantity = encounterStatsManager.getEncounterCounts().getCount(encounter);
-        for (int npcId :  encounter.getNpcIds()) {
+
+        for (SubEncounterType subEncounter : encounter.getSubEncounters()) {
             // add subtype cards here
             JPanel panel = new JPanel(new BorderLayout());
             panel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-            JLabel test = new JLabel("" +  npcId);
+            Dimension labelDimension = new Dimension(60, 15);
+            JLabel test = new JLabel("" +  subEncounter.getName());
+            test.setHorizontalAlignment(SwingConstants.CENTER);
+            test.setPreferredSize(labelDimension);
             panel.add(test, BorderLayout.WEST);
 
             ProgressBar subProgressBar = new ProgressBar();
-            int npcQuantity = encounterStatsManager.getEncounterCounts().getCount(npcId);
+            int npcQuantity = encounterStatsManager.getEncounterCounts().getCount(subEncounter.getId());
             subProgressBar.setMaximumValue(quantity);
             subProgressBar.setRightLabel(""+quantity);
             subProgressBar.setValue(npcQuantity);
             subProgressBar.setCenterLabel(""+npcQuantity);
             subProgressBar.setBackground(ColorScheme.DARK_GRAY_COLOR);
+            subProgressBar.setAlignmentX(Component.CENTER_ALIGNMENT);
+            subProgressBar.setAlignmentY(Component.CENTER_ALIGNMENT);
             panel.add(subProgressBar, BorderLayout.CENTER);
             southPanel.add(panel);
         }
         add(southPanel, BorderLayout.SOUTH);
+    }
+
+    void update() {
+        encounterStatsManager.getEncounterCounts();
     }
 
     private void toggleCard() {

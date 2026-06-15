@@ -2,10 +2,9 @@ package dev.blonks.osrs.oceanencounters.features.encounters;
 
 import com.google.common.base.Strings;
 import com.google.gson.Gson;
-import com.google.inject.Provides;
 import dev.blonks.osrs.oceanencounters.OceanEncounterConfig;
 import dev.blonks.osrs.oceanencounters.features.encounters.events.EncounterSpawned;
-import dev.blonks.osrs.oceanencounters.features.util.Encounter;
+import dev.blonks.osrs.oceanencounters.model.Encounter;
 import dev.blonks.osrs.oceanencounters.model.EncounterCounts;
 import dev.blonks.osrs.oceanencounters.module.PluginLifecycleComponent;
 import lombok.Getter;

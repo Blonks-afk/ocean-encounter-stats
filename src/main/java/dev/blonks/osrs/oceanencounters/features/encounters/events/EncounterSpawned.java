@@ -1,6 +1,6 @@
 package dev.blonks.osrs.oceanencounters.features.encounters.events;
 
-import dev.blonks.osrs.oceanencounters.features.util.Encounter;
+import dev.blonks.osrs.oceanencounters.model.Encounter;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import net.runelite.api.coords.WorldPoint;

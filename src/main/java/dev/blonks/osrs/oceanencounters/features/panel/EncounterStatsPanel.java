@@ -1,7 +1,7 @@
 package dev.blonks.osrs.oceanencounters.features.panel;
 
 import dev.blonks.osrs.oceanencounters.features.encounters.EncounterStatsManager;
-import dev.blonks.osrs.oceanencounters.features.util.Encounter;
+import dev.blonks.osrs.oceanencounters.model.Encounter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
@@ -24,8 +24,10 @@ public class EncounterStatsPanel extends PluginPanel {
         this.encounterStatsManager = encounterStatsManager;
 
         setLayout(new BorderLayout());
-        setBorder(new EmptyBorder(5, 5, 5, 5));
+        setBorder(new EmptyBorder(6, 6, 6, 6));
+        setBackground(ColorScheme.DARK_GRAY_COLOR);
 
+        // Create and add main title
         JLabel title = new JLabel("Encounter Stats");
         title.setForeground(Color.WHITE);
         JPanel titlePanel = new JPanel(new BorderLayout());
@@ -38,8 +40,9 @@ public class EncounterStatsPanel extends PluginPanel {
     }
 
     private JPanel buildEncounterPanel() {
+        // Create and add individual encounter cards
         encounterPanel = new JPanel();
-        encounterPanel.setBorder(new EmptyBorder(1, 1, 1, 1));
+        encounterPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         encounterPanel.setLayout(new BoxLayout(encounterPanel, BoxLayout.Y_AXIS));
         encounterPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 //        encounterPanel.setLayout(new BorderLayout());

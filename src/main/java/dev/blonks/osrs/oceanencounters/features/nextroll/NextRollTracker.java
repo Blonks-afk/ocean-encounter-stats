@@ -6,19 +6,13 @@ import dev.blonks.osrs.oceanencounters.features.encounters.events.InkStoutChatMe
 import dev.blonks.osrs.oceanencounters.features.util.Constants;
 import dev.blonks.osrs.oceanencounters.features.util.LocationService;
 import dev.blonks.osrs.oceanencounters.module.PluginLifecycleComponent;
-import java.lang.reflect.Field;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
-import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.Subscribe;
 
 import javax.inject.Inject;
@@ -45,11 +39,8 @@ public class NextRollTracker implements PluginLifecycleComponent
 	private List<Integer> disembarkPenalties = new ArrayList<>();
 	@Getter
 	private int ticksDisembarked = 0;
-
 	@Getter
 	private boolean disembarkedFlag = false;
-	@Getter
-	private boolean hasMoved = false;
 	/**
 	 * Simple flag to track on a given login session whether the player has
 	 * been on their boat. Typically used to decide whether the overlay
@@ -58,11 +49,7 @@ public class NextRollTracker implements PluginLifecycleComponent
 	@Getter
 	private boolean beenOnBoat = false;
 
-	@Getter
-	private int varbitTicksMoving = 0;
-
 	private int currentTickCycle = Constants.SAILING_TICK_PER_ENCOUNTER_ROLL_WITH_KRAKEN;
-	Map<Integer, Integer> varbs = new HashMap();
 
 	@Override
 	public boolean isEnabled(OceanEncounterConfig config)
@@ -93,25 +80,28 @@ public class NextRollTracker implements PluginLifecycleComponent
 		{
 			resetState();
 			beenOnBoat = false;
-			log.info("beenOnBoat=false");
 		}
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick gameTick)
 	{
-		// TODO: Implement reset logic (i.e. docking
+		currentTickCycle = determineTickCycle();
+
 		if (client.getLocalPlayer() == null)
 		{
 			return;
 		}
+		// Track when players disembark
 		if (client.getLocalPlayer().getWorldView().isTopLevel())
 		{
-			ticksDisembarked++;
-			if (!disembarkedFlag) {
+			ticksDisembarked++; // Track disembarked ticks to know when overlay should hide
+			if (!disembarkedFlag && beenOnBoat) {
+				// the first tick after players have disembarked from their boat
 				int penalty = Math.min(currentTickCycle - ticksRemaining, 20);
 				if (penalty > 0) {
 					disembarkPenalties.add(penalty);
+					// TODO: Replace with one variable, track remaining with modulo 115/120
 					ticksRemaining += penalty;
 					ticksMoving -= penalty;
 				}
@@ -119,15 +109,11 @@ public class NextRollTracker implements PluginLifecycleComponent
 			}
 			return;
 		}
+		// Player is on a boat, reset some of the flags and trackers
 		beenOnBoat = true;
 		disembarkedFlag = false;
 		ticksDisembarked = 0;
 
-		// Check for and reset on certain conditions
-		if (!List.of(0, 4).contains(client.getVarbitValue(VarbitID.SAILING_SIDEPANEL_BOAT_MOVE_MODE)))
-		{
-			varbitTicksMoving++;
-		}
 		int speed = locationService.getSpeed();
 		if (speed != 0.0)
 		{
@@ -142,7 +128,7 @@ public class NextRollTracker implements PluginLifecycleComponent
 			client.addChatMessage(
 				ChatMessageType.NPC_SAY,
 				"Ocean Encounters",
-				String.format("Spawned after moving for %d ticks (vb:%d)!", ticksMoving, varbitTicksMoving),
+				String.format("Spawned after moving for %d ticks!", ticksMoving),
 				"Ocean Encounters"
 			);
 			resetState();
@@ -176,7 +162,6 @@ public class NextRollTracker implements PluginLifecycleComponent
 	 * Queue encounter spawn processing when the ink stout chat message procs.
 	 * Since this is directly from the server, we can disregard any local assumptions
 	 * about duration so no need for debounce
-	 *
 	 * @param event
 	 */
 	@Subscribe
@@ -192,9 +177,14 @@ public class NextRollTracker implements PluginLifecycleComponent
 	{
 		ticksRemaining = currentTickCycle;
 		ticksMoving = 0;
-		varbitTicksMoving = 0;
 		queueEncounter = false;
 		disembarkPenalties.clear();
 		beenOnBoat = false;
+	}
+
+	private int determineTickCycle()
+	{
+		// TODO: Implement 115 vs 120 logic for kraken ink stout
+		return Constants.SAILING_TICK_PER_ENCOUNTER_ROLL_WITH_KRAKEN;
 	}
 }

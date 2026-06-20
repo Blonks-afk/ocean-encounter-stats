@@ -2,10 +2,8 @@ package dev.blonks.osrs.oceanencounters.features.nextroll;
 
 import dev.blonks.osrs.oceanencounters.OceanEncounterConfig;
 import dev.blonks.osrs.oceanencounters.module.PluginLifecycleComponent;
-import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
-import net.runelite.api.events.VarbitChanged;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -14,7 +12,6 @@ import net.runelite.client.ui.overlay.components.TitleComponent;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.awt.*;
-import net.runelite.client.util.RSTimeUnit;
 
 @Slf4j
 @Singleton
@@ -51,7 +48,7 @@ public class NextRollOverlay extends OverlayPanel implements PluginLifecycleComp
 				return null;
 			}
         }
-        String rollString = String.format("%d (%d, vb:%d)", tracker.getTicksRemaining(), tracker.getTicksMoving(), tracker.getVarbitTicksMoving());
+        String rollString = String.format("%d (%d)", tracker.getTicksRemaining(), tracker.getTicksMoving());
 
         panelComponent.getChildren().add(TitleComponent.builder()
                 .text("Next Roll in")

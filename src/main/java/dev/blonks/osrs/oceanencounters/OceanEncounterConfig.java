@@ -4,6 +4,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Units;
 
 @ConfigGroup(OceanEncounterConfig.CONFIG_GROUP)
 public interface OceanEncounterConfig extends Config
@@ -94,6 +95,18 @@ public interface OceanEncounterConfig extends Config
 	)
 	default NextRollDisplayTime nextRollDisplayTime() {
 		return NextRollDisplayTime.NAVIGATING;
+	}
+
+	@ConfigItem(
+		keyName = "nextRollOverlayHide",
+		name = "Hide Overlay",
+		description = "The number of minutes after disembarking to wait before hiding the overlay",
+		section = ROLL_TRACKING
+	)
+	@Units(Units.MINUTES)
+	default int nextRollOverlayHide()
+	{
+		return 3;
 	}
 
 	@ConfigSection(

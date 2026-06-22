@@ -28,6 +28,7 @@ public class LocationService implements PluginLifecycleComponent {
 
     private LocalPoint lastLocalLocation;
     private LocalPoint lastLocalTarget;
+	private WorldPoint lastWorldTarget;
     private int sceneBaseX = -1;
     private int sceneBaseY = -1;
 
@@ -44,17 +45,53 @@ public class LocationService implements PluginLifecycleComponent {
     private void onGameTick(GameTick gameTick) {
         lastLocalTarget = getLocalTargetLocation();
         lastLocalLocation = getLocalLocation();
+		lastWorldTarget = getWorldTargetLocation();
     }
+
+	public LocalPoint getLocalLocation() {
+		WorldEntity boat = getBoat();
+		if (boat == null) {
+			return null;
+		}
+
+		return boat.getLocalLocation();
+	}
 
     public LocalPoint getLastLocalLocation() {
         lastLocalLocation = checkSceneBase(lastLocalLocation);
         return lastLocalLocation;
     }
 
+	public LocalPoint getLocalTargetLocation() {
+		WorldEntity boat = getBoat();
+		if (boat == null) {
+			return null;
+		}
+
+		return boat.getTargetLocation();
+	}
+
     public LocalPoint getLastLocalTarget() {
         lastLocalTarget = checkSceneBase(lastLocalTarget);
         return lastLocalTarget;
     }
+
+	public WorldPoint getWorldTargetLocation() {
+		LocalPoint targetLoc = getLocalTargetLocation();
+		if (targetLoc == null) {
+			return null;
+		}
+
+		return WorldPoint.fromLocal(
+			client,
+			targetLoc
+		);
+	}
+
+	public WorldPoint getLastWorldTargetLocation()
+	{
+		return lastWorldTarget;
+	}
 
     private LocalPoint checkSceneBase(LocalPoint localLocation) {
         WorldView tlwv = client.getTopLevelWorldView();
@@ -82,17 +119,16 @@ public class LocationService implements PluginLifecycleComponent {
         return adjusted;
     }
 
-    public WorldPoint getWorldTargetLocation() {
-        LocalPoint targetLoc = getLocalTargetLocation();
-        if (targetLoc == null) {
-            return null;
-        }
+	public int getOrientation()
+	{
+		WorldEntity boat = getBoat();
+		if (boat == null)
+		{
+			return 0;
+		}
 
-        return WorldPoint.fromLocal(
-                client,
-                targetLoc
-        );
-    }
+		return boat.getOrientation();
+	}
 
     public int getTargetOrientation() {
         WorldEntity boat = getBoat();
@@ -101,24 +137,6 @@ public class LocationService implements PluginLifecycleComponent {
         }
 
         return boat.getTargetOrientation();
-    }
-
-    public LocalPoint getLocalTargetLocation() {
-        WorldEntity boat = getBoat();
-        if (boat == null) {
-            return null;
-        }
-
-        return boat.getTargetLocation();
-    }
-
-    public LocalPoint getLocalLocation() {
-        WorldEntity boat = getBoat();
-        if (boat == null) {
-            return null;
-        }
-
-        return boat.getLocalLocation();
     }
 
     public WorldEntity getBoat() {

@@ -11,6 +11,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.Subscribe;
@@ -117,8 +118,12 @@ public class NextRollTracker implements PluginLifecycleComponent
 		int speed = locationService.getSpeed();
 		if (speed != 0.0)
 		{
-			ticksRemaining--;
-			ticksMoving++;
+			WorldPoint lastTarget = locationService.getLastWorldTargetLocation();
+			WorldPoint currentTarget = locationService.getWorldTargetLocation();
+			if (lastTarget != null && !lastTarget.equals(currentTarget)) {
+				ticksRemaining--;
+				ticksMoving++;
+			}
 		}
 
 		// only after incrementing counters, process any queued encounters
